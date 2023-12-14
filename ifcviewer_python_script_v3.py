@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from ttkthemes import ThemedTk
 import ifcopenshell
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -7,7 +8,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class IfcViewer:
     def __init__(self, master):
-        self.master = master
+        #self.master = master
+        self.master = ThemedTk(theme="yaru") #arc
         self.master.title("IFC Viewer")
 
         # Frame for IFC tree
@@ -141,14 +143,32 @@ class IfcViewer:
         self.network_graph.clear()
         #print(">>>>>>>> ", selected_element.is_a('IfcPipeSegment'))
         # Add nodes and edges based on selected element (modify as needed)
-        if selected_element.is_a('IfcPipeSegment') or selected_element.is_a('IfcDuctSegment') or selected_element.is_a('IfcPipeFitting') :
-            print(">>>>>>>><here i am")
+        if selected_element.is_a('IfcFlowSegment') or selected_element.is_a('IfcFlowFitting') or selected_element.is_a('IfcPipeSegment') or selected_element.is_a('IfcDuctSegment') or selected_element.is_a('IfcPipeFitting') :
+            #print(">>>>>>>><here i am")
             # Example: Add connected pipes and ducts as edges
             for group in selected_element.HasAssignments:
-                for group_member in group.RelatedObjects:
-                    self.network_graph.add_node(group_member.GlobalId, label=group_member.Name)
+                for i, group_member in enumerate(group.RelatedObjects):
+                    if i == 100:
+                        break
+                    try:
+                        if len(group_member.HasPorts) == 0:
+                            break
+                        else:
+                            self.network_graph.add_node(group_member.GlobalId, label=group_member.Name)
+                    except:
+                        ""
+                    
+                    try:
+                        for ports in group_member.HasPorts:
+                            con2   = ports.RelatingPort.ConnectedTo
+                            if len(con2) == 0:
+                                break
+                            conEle = con2[0].RelatedPort.ContainedIn[0].RelatedElement
+                            self.network_graph.add_edge(selected_element.GlobalId, conEle.GlobalId)
+                    except: 
+                        ""
                     #self.network_graph.add_node(rel_connected.RelatingElement.GlobalId, label=rel_connected.RelatingElement.Name)
-                    #self.network_graph.add_edge(selected_element.GlobalId, rel_connected.RelatingElement.GlobalId)
+                    #
 
         # Update the graph
         
@@ -157,10 +177,20 @@ class IfcViewer:
 
 
     def network_graph_plot(self):
-        # Return a NetworkX graph plot (modify as needed)
-        pos = nx.spring_layout(self.network_graph)  # You can use different layout algorithms
-        nx.draw(self.network_graph, pos, with_labels=True, font_weight='bold', ax=plt.gca())
-        plt.title('Network Graph')
+        plt.clf()
+        
+        selected_item = self.tree.selection()
+        if selected_item:
+            element_id = selected_item[0]
+            selected_element = self.ifc_file.by_id(element_id)
+        
+            # Return a NetworkX graph plot (modify as needed)
+            pos = nx.spring_layout(self.network_graph)  # You can use different layout algorithms
+            #nx.draw(self.network_graph, pos, with_labels=False, font_weight='bold',ax=plt.gca())
+            nx.draw_networkx_nodes(self.network_graph, pos, node_size=15)
+            nx.draw_networkx_nodes(self.network_graph, pos, nodelist = [selected_element.GlobalId], node_size=25, node_color='#1f78b4')
+            nx.draw_networkx_edges(self.network_graph, pos, width=5.0)
+            plt.title('Network Graph')
         return plt.gcf()
 
 if __name__ == "__main__":
@@ -168,6 +198,6 @@ if __name__ == "__main__":
     app = IfcViewer(root)
     
     # Replace 'path/to/your/ifcfile.ifc' with the actual path to your IFC file
-    app.load_ifc_file(r"utils\LM_AR_31_V1.ifc")
+    app.load_ifc_file(r"utils\FM_LU_41.ifc")
 
     root.mainloop()
